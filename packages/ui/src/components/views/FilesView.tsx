@@ -4222,6 +4222,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       button: React.ReactElement;
       onSelect?: () => void;
       submenu?: React.ReactNode;
+      hidden?: boolean;
     };
     const secondaryActions: SecondaryAction[] = [];
 
@@ -4331,14 +4332,18 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       });
     }
 
-    if (isMarkdown && getMdViewMode() === 'preview' && showMessageTTSButtons) {
+    if (isMarkdown && showMessageTTSButtons) {
       const ttsLabel = isTTSPlaying ? t('filesView.tts.stopSpeaking') : t('filesView.tts.readAloud');
       secondaryActions.push({
         id: 'tts',
         label: ttsLabel,
         icon: <Icon name="volume-up" className="size-4" />,
         onSelect: toggleTTS,
-        button: (
+        hidden: getMdViewMode() !== 'preview',
+        // Reserve the preview-only slot so Find and the eye stay in place.
+        button: getMdViewMode() !== 'preview' ? (
+          <Button variant="ghost" size="sm" disabled aria-hidden tabIndex={-1} className="invisible size-6 shrink-0 p-0" />
+        ) : (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -4435,77 +4440,92 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     const inlineActions = secondaryActions.slice(0, inlineCount);
     const overflowActions = secondaryActions.slice(inlineCount);
 
+    const findControl = withTooltip(t('filesView.editor.findInFile'),
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(event) => {
+          if (isMarkdown && getMdViewMode() === 'preview') {
+            setMdPreviewFindOpen(true);
+            setMdPreviewFindFocusNonce((value) => value + 1);
+          } else {
+            setIsSearchOpen(!isSearchOpen);
+          }
+          event.currentTarget.blur();
+        }}
+        className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
+        title={t('filesView.editor.findInFile')}
+      >
+        <Icon name="search" className="size-4" />
+      </Button>
+    );
+
+    const saveStatus = isSaving ? (
+      <span className="flex items-center gap-1 px-1 text-muted-foreground typography-meta">
+        <Icon name="loader-4" className="size-3.5 animate-spin" />
+        {t('filesView.editor.saving')}
+      </span>
+    ) : autoSaveEnabled && autoSaveStatus === 'saved' && !isDirty ? (
+      <span className="flex items-center gap-1 px-1 text-[color:var(--status-success)] typography-meta">
+        <Icon name="check" className="size-3.5" />
+        {t('filesView.editor.saved')}
+      </span>
+    ) : isDirty ? withTooltip(t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut }),
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => void saveDraft()}
+        className="h-6 gap-1 px-1 text-muted-foreground opacity-80 hover:bg-transparent hover:opacity-100 focus-visible:bg-transparent active:bg-transparent"
+        title={t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut })}
+        aria-label={t('filesView.editor.saveAria', { shortcut: saveShortcut })}
+      >
+        <Icon name="save-3" className="size-4" />
+      </Button>
+    ) : null;
+
+    const saveControls = canEdit && (isEditingFile || isMarkdown) && (
+      <>
+        {saveStatus}
+        {withTooltip(autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave'),
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
+            className={cn(
+              'size-6 p-0 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent',
+              autoSaveEnabled ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-65 hover:opacity-100'
+            )}
+            title={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
+            aria-label={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
+          >
+            {autoSaveEnabled ? <Icon name="file-check-fill" className="size-4" /> : <Icon name="file-check" className="size-4" />}
+          </Button>
+        )}
+      </>
+    );
+
     const primaryControls = (
       <>
-        {canEdit && isEditingFile && (
-          <>
-            {isSaving ? (
-              <span className="flex items-center gap-1 px-1 text-muted-foreground typography-meta">
-                <Icon name="loader-4" className="size-3.5 animate-spin" />
-                {t('filesView.editor.saving')}
-              </span>
-            ) : autoSaveEnabled && autoSaveStatus === 'saved' && !isDirty ? (
-              <span className="flex items-center gap-1 px-1 text-[color:var(--status-success)] typography-meta">
-                <Icon name="check" className="size-3.5" />
-                {t('filesView.editor.saved')}
-              </span>
-            ) : isDirty ? withTooltip(t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut }),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void saveDraft()}
-                className="h-6 gap-1 px-1 text-muted-foreground opacity-80 hover:bg-transparent hover:opacity-100 focus-visible:bg-transparent active:bg-transparent"
-                title={t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut })}
-                aria-label={t('filesView.editor.saveAria', { shortcut: saveShortcut })}
-              >
-                <Icon name="save-3" className="size-4" />
-              </Button>
-            ) : null}
-            {withTooltip(autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave'),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
-                className={cn(
-                  'size-6 p-0 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent',
-                  autoSaveEnabled ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-65 hover:opacity-100'
-                )}
-                title={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
-                aria-label={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
-              >
-                {autoSaveEnabled ? <Icon name="file-check-fill" className="size-4" /> : <Icon name="file-check" className="size-4" />}
-              </Button>
-            )}
-          </>
-        )}
+        {isMarkdown && saveControls ? (
+          <span
+            className={cn('flex shrink-0 items-center gap-1', getMdViewMode() === 'preview' && 'invisible')}
+            aria-hidden={getMdViewMode() === 'preview' || undefined}
+            inert={getMdViewMode() === 'preview' || undefined}
+          >
+            {saveControls}
+          </span>
+        ) : saveControls}
 
+        {((!isSelectedNonText && textViewMode === 'edit') || (isMarkdown && getMdViewMode() === 'preview')) && findControl}
+
+        {/* The dialog stays mounted when its button moves to the overflow menu. */}
         {!isSelectedNonText && textViewMode === 'edit' && (
-          <>
-            {/* The Markdown preview has its own find button; this one drives the
-                editor, which the preview replaces. */}
-            {!(isMarkdown && getMdViewMode() === 'preview') && withTooltip(t('filesView.editor.findInFile'),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(event) => {
-                  setIsSearchOpen(!isSearchOpen);
-                  event.currentTarget.blur();
-                }}
-                className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                title={t('filesView.editor.findInFile')}
-              >
-                <Icon name="search" className="size-4" />
-              </Button>
-            )}
-            {/* Rendered with search, not with its own button, so it still
-                opens when that button has moved into the overflow menu. */}
-            <GoToLineDialog
-              open={isGoToLineOpen}
-              onOpenChange={setIsGoToLineOpen}
-              viewRef={editorViewRef}
-              variant="inline"
-            />
-          </>
+          <GoToLineDialog
+            open={isGoToLineOpen}
+            onOpenChange={setIsGoToLineOpen}
+            viewRef={editorViewRef}
+            variant="inline"
+          />
         )}
 
         {canUseShikiFileView && canEdit && !isJson && !isHtml && !isSelectedSvg && !isMermaid && !isTable && (
@@ -4517,25 +4537,23 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           />
         )}
 
-        {isMarkdown && (
-          withTooltip(
-            t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => saveMdViewMode(getMdViewMode() === 'preview' ? 'edit' : 'preview')}
-              className={cn(
-                'size-6 p-0 transition-colors hover:bg-[var(--interactive-hover)] focus-visible:bg-[var(--interactive-hover)] active:bg-[var(--interactive-hover)]',
-                getMdViewMode() === 'preview'
-                  ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)] focus-visible:bg-[var(--interactive-selection)] active:bg-[var(--interactive-selection)]'
-                  : 'text-muted-foreground opacity-65 hover:opacity-100'
-              )}
-              title={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
-              aria-label={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
-            >
-              <Icon name={getMdViewMode() === 'preview' ? 'eye' : 'eye-off'} className="size-4" />
-            </Button>
-          )
+        {isMarkdown && withTooltip(
+          t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode'),
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => saveMdViewMode(getMdViewMode() === 'preview' ? 'edit' : 'preview')}
+            className={cn(
+              'size-6 p-0 transition-colors hover:bg-[var(--interactive-hover)] focus-visible:bg-[var(--interactive-hover)] active:bg-[var(--interactive-hover)]',
+              getMdViewMode() === 'preview'
+                ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)] focus-visible:bg-[var(--interactive-selection)] active:bg-[var(--interactive-selection)]'
+                : 'text-muted-foreground opacity-65 hover:opacity-100'
+            )}
+            title={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
+            aria-label={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
+          >
+            <Icon name={getMdViewMode() === 'preview' ? 'eye' : 'eye-off'} className="size-4" />
+          </Button>
         )}
 
         {isHtmlFile(selectedFile?.path ?? '') && (
@@ -4596,23 +4614,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               ) : (
                 <Icon name="table-2" className="size-4" />
               )}
-            </Button>
-          )
-        )}
-
-        {isMarkdown && getMdViewMode() === 'preview' && (
-          withTooltip(t('filesView.editor.findInFile'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMdPreviewFindOpen(true);
-                setMdPreviewFindFocusNonce((value) => value + 1);
-              }}
-              className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.findInFile')}
-            >
-              <Icon name="search" className="size-4" />
             </Button>
           )
         )}
@@ -4737,7 +4738,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       )
     ) : null);
 
-    const overflowMenu = overflowActions.length > 0 ? (
+    const overflowMenu = overflowActions.length > 0 && overflowActions.every((action) => action.hidden)
+      ? <Button variant="ghost" size="sm" disabled aria-hidden tabIndex={-1} className="invisible size-6 shrink-0 p-0" />
+      : overflowActions.length > 0 ? (
       <DropdownMenu onOpenChange={handleToolbarDropdownOpenChange}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -4757,7 +4760,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           <TooltipContent side="bottom" sideOffset={6}>{t('filesView.editor.moreActions')}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className="w-56">
-          {overflowActions.map((action) => action.submenu ? (
+          {overflowActions.filter((action) => !action.hidden).map((action) => action.submenu ? (
             <DropdownMenuSub key={action.id}>
               <DropdownMenuSubTrigger className="flex items-center gap-2">
                 {action.icon}

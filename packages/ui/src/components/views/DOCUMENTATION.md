@@ -210,6 +210,27 @@ one attribute per moved
 control; the menu reads them when it opens and shows a check beside each view
 option that is on.
 
+## Markdown toolbar controls
+
+Markdown Find precedes the preview toggle in both file toolbars, before the
+secondary actions, matching the source toolbar's established order. Find opens
+the source editor's search in edit mode and the document search in preview mode.
+Other file types retain their mode-specific action visibility.
+
+### Why Markdown reserves mode-specific action space
+
+The toolbar aligns to the end, and its overflow fit depends on primary-action
+width. Markdown keeps the save group's width while preview hides it with
+`invisible` and `inert`, and reserves Read aloud's slot while source hides it.
+Save status uses its natural width and the existing 4px action gap. Reserving
+the translated Saving/Saved label widths left an oversized gap beside the Save
+icon in manual-save mode. Read aloud's hidden slot uses the same Button sizing,
+including mobile touch minimums, and is excluded from the overflow menu.
+Switching Markdown modes therefore keeps the same fit for the current save
+state. Saving and Saved status changes retain their existing width behavior.
+Moving the pair after the secondary actions also anchored them, but changed the
+established ordering.
+
 ## Large text files
 
 The 200,000-character threshold selects an initial code preview, not read-only
